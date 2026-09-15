@@ -18,7 +18,12 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 class ArmTeleop(Node):
 
     def __init__(self):
+
         super().__init__('arm_teleop')
+
+        # =========================================================
+        # JOINT NAMES
+        # =========================================================
 
         self.joint_names = [
             'base_yaw_joint',
@@ -29,16 +34,37 @@ class ArmTeleop(Node):
             'gripper_joint'
         ]
 
+        # =========================================================
+        # JOINT LIMITS
+        # =========================================================
+
         self.joint_limits = {
-            'base_yaw_joint': (-3.14, 3.14),
-            'shoulder_joint': (-1.57, 1.57),
-            'elbow_joint': (-2.50, 2.50),
-            'wrist_pitch_joint': (-1.57, 1.57),
-            'wrist_roll_joint': (-3.14, 3.14),
-            'gripper_joint': (0.0, math.pi / 2.0)
+
+            'base_yaw_joint':
+                (-3.14, 3.14),
+
+            'shoulder_joint':
+                (-1.57, 1.57),
+
+            'elbow_joint':
+                (-2.50, 2.50),
+
+            'wrist_pitch_joint':
+                (-1.57, 1.57),
+
+            'wrist_roll_joint':
+                (-3.14, 3.14),
+
+            'gripper_joint':
+                (0.0, math.pi / 2.0)
         }
 
+        # =========================================================
+        # KEY -> JOINT
+        # =========================================================
+
         self.key_to_joint = {
+
             'b': 'base_yaw_joint',
             's': 'shoulder_joint',
             'e': 'elbow_joint',
@@ -47,23 +73,61 @@ class ArmTeleop(Node):
             'g': 'gripper_joint'
         }
 
-        self.declare_parameter('speed', 0.5)
-        self.speed = float(self.get_parameter('speed').value)
+        # =========================================================
+        # SPEED
+        # =========================================================
 
-        self.actual_positions = {}
-        self.command_positions = {}
+        self.declare_parameter(
+            'speed',
+            0.5
+        )
 
-        self.selected_joint = None
-        self.direction = 0
+        self.speed = float(
+            self.get_parameter('speed').value
+        )
+
+        # =========================================================
+        # POSITION STATE
+        # =========================================================
+
+        self.command_positions = {
+            name: 0.0
+            for name in self.joint_names
+        }
+
+        self.actual_positions = {
+            name: 0.0
+            for name in self.joint_names
+        }
 
         self.initialized = False
+
+        # =========================================================
+        # KEYBOARD STATE
+        # =========================================================
+
+        self.selected_joint = None
+
+        # +1 = up
+        # -1 = down
+        #  0 = stopped
+
+        self.direction = 0
+
+        # Time at which the last movement key was received
+        self.last_move_key_time = 0.0
+
+        # If no arrow key is received for this long,
+        # stop the arm.
+        self.key_timeout = 0.15
+
         self.running = True
 
         self.lock = threading.Lock()
 
-        # ---------------------------------------------------------
-        # ROS
-        # ---------------------------------------------------------
+        # =========================================================
+        # ROS SUBSCRIBER
+        # =========================================================
 
         self.create_subscription(
             JointState,
@@ -72,21 +136,29 @@ class ArmTeleop(Node):
             10
         )
 
+        # =========================================================
+        # ROS PUBLISHER
+        # =========================================================
+
         self.publisher = self.create_publisher(
             JointTrajectory,
             '/arm_controller/joint_trajectory',
             10
         )
 
-        # 100 Hz
+        # =========================================================
+        # MOVEMENT TIMER
+        # =========================================================
+
+        # 20 Hz
         self.timer = self.create_timer(
-            0.01,
+            0.05,
             self.update
         )
 
-        # ---------------------------------------------------------
-        # Keyboard thread
-        # ---------------------------------------------------------
+        # =========================================================
+        # KEYBOARD THREAD
+        # =========================================================
 
         self.keyboard_thread = threading.Thread(
             target=self.keyboard_loop,
@@ -95,19 +167,60 @@ class ArmTeleop(Node):
 
         self.keyboard_thread.start()
 
-        self.get_logger().info('Teleop started.')
+        # =========================================================
+        # LOGGING
+        # =========================================================
+
         self.get_logger().info(
-            'B S E W R G = select joint'
+            '======================================'
         )
+
         self.get_logger().info(
-            'UP / DOWN = move'
+            'Arm Teleop Started'
         )
+
+        self.get_logger().info(
+            '======================================'
+        )
+
+        self.get_logger().info(
+            'B = base yaw'
+        )
+
+        self.get_logger().info(
+            'S = shoulder'
+        )
+
+        self.get_logger().info(
+            'E = elbow'
+        )
+
+        self.get_logger().info(
+            'W = wrist pitch'
+        )
+
+        self.get_logger().info(
+            'R = wrist roll'
+        )
+
+        self.get_logger().info(
+            'G = gripper'
+        )
+
+        self.get_logger().info(
+            'UP = move forward'
+        )
+
+        self.get_logger().info(
+            'DOWN = move backward'
+        )
+
         self.get_logger().info(
             'Q = quit'
         )
 
     # =============================================================
-    # JOINT STATES
+    # JOINT STATE CALLBACK
     # =============================================================
 
     def joint_state_callback(self, msg):
@@ -119,28 +232,34 @@ class ArmTeleop(Node):
                 if name in self.joint_names:
 
                     if i < len(msg.position):
-                        self.actual_positions[name] = msg.position[i]
 
-            # Only initialize once
+                        self.actual_positions[name] = \
+                            msg.position[i]
+
+            # Initialize command positions from simulator
+            # only once.
+
             if not self.initialized:
 
-                if all(
-                    name in self.actual_positions
-                    for name in self.joint_names
-                ):
+                for name in self.joint_names:
 
-                    self.command_positions = dict(
-                        self.actual_positions
-                    )
+                    if name in msg.name:
 
-                    self.initialized = True
+                        index = msg.name.index(name)
 
-                    self.get_logger().info(
-                        'Joint positions initialized.'
-                    )
+                        if index < len(msg.position):
+
+                            self.command_positions[name] = \
+                                msg.position[index]
+
+                self.initialized = True
+
+                self.get_logger().info(
+                    'Joint positions initialized.'
+                )
 
     # =============================================================
-    # READ ONE KEY
+    # READ KEY
     # =============================================================
 
     def read_key(self):
@@ -155,7 +274,16 @@ class ArmTeleop(Node):
 
             key = sys.stdin.read(1)
 
-            # Arrow key
+            # -----------------------------------------------------
+            # Arrow keys
+            #
+            # UP:
+            # ESC [ A
+            #
+            # DOWN:
+            # ESC [ B
+            # -----------------------------------------------------
+
             if key == '\x1b':
 
                 key2 = sys.stdin.read(1)
@@ -181,33 +309,39 @@ class ArmTeleop(Node):
             )
 
     # =============================================================
-    # KEYBOARD
+    # KEYBOARD LOOP
     # =============================================================
 
     def keyboard_loop(self):
 
         while self.running:
 
-            key = self.read_key()
+            try:
 
-            # ---------------------------------------------
-            # Quit
-            # ---------------------------------------------
+                key = self.read_key()
+
+            except Exception:
+
+                break
+
+            now = time.monotonic()
+
+            # =====================================================
+            # QUIT
+            # =====================================================
 
             if key.lower() == 'q':
 
-                self.running = False
-
                 with self.lock:
-                    self.direction = 0
 
-                rclpy.shutdown()
+                    self.direction = 0
+                    self.running = False
 
                 return
 
-            # ---------------------------------------------
-            # Select joint
-            # ---------------------------------------------
+            # =====================================================
+            # JOINT SELECTION
+            # =====================================================
 
             if key.lower() in self.key_to_joint:
 
@@ -216,62 +350,93 @@ class ArmTeleop(Node):
                     self.selected_joint = \
                         self.key_to_joint[key.lower()]
 
+                    # Stop previous movement when changing joint
                     self.direction = 0
 
                 print(
-                    f'\nSelected: {self.selected_joint}',
+                    f'\nSelected: '
+                    f'{self.selected_joint}',
                     flush=True
                 )
 
                 continue
 
-            # ---------------------------------------------
+            # =====================================================
             # UP
-            # ---------------------------------------------
+            # =====================================================
 
             if key == 'UP':
 
                 with self.lock:
 
                     if self.selected_joint is not None:
+
                         self.direction = 1
+
+                        self.last_move_key_time = now
 
                 continue
 
-            # ---------------------------------------------
+            # =====================================================
             # DOWN
-            # ---------------------------------------------
+            # =====================================================
 
             if key == 'DOWN':
 
                 with self.lock:
 
                     if self.selected_joint is not None:
+
                         self.direction = -1
+
+                        self.last_move_key_time = now
 
                 continue
 
     # =============================================================
-    # UPDATE POSITION
+    # UPDATE
     # =============================================================
 
     def update(self):
 
-        if not self.initialized:
-            return
-
         with self.lock:
+
+            if not self.initialized:
+                return
 
             if self.selected_joint is None:
                 return
+
+            # -----------------------------------------------------
+            # AUTOMATIC STOP
+            # -----------------------------------------------------
+
+            # Terminal key-repeat stops when the key is released.
+            # If we haven't received another arrow event recently,
+            # assume the key has been released.
+
+            if (
+                time.monotonic() -
+                self.last_move_key_time
+                > self.key_timeout
+            ):
+
+                self.direction = 0
+
+            # -----------------------------------------------------
+            # If stopped, don't publish movement
+            # -----------------------------------------------------
 
             if self.direction == 0:
                 return
 
             joint = self.selected_joint
 
-            # 10 ms
-            dt = 0.01
+            # =====================================================
+            # POSITION UPDATE
+            # =====================================================
+
+            dt = 0.05
 
             self.command_positions[joint] += (
                 self.speed *
@@ -279,7 +444,10 @@ class ArmTeleop(Node):
                 dt
             )
 
-            # Clamp
+            # =====================================================
+            # LIMIT
+            # =====================================================
+
             lower, upper = self.joint_limits[joint]
 
             self.command_positions[joint] = max(
@@ -290,30 +458,66 @@ class ArmTeleop(Node):
                 )
             )
 
+            # -----------------------------------------------------
+            # If limit reached, stop movement
+            # -----------------------------------------------------
+
+            if (
+                self.command_positions[joint] <= lower
+                and self.direction < 0
+            ):
+
+                self.direction = 0
+
+            if (
+                self.command_positions[joint] >= upper
+                and self.direction > 0
+            ):
+
+                self.direction = 0
+
+            # =====================================================
+            # COPY ALL POSITIONS
+            # =====================================================
+
             positions = [
                 self.command_positions[name]
                 for name in self.joint_names
             ]
 
-        # ---------------------------------------------------------
-        # Publish
-        # ---------------------------------------------------------
+        # =========================================================
+        # PUBLISH TRAJECTORY
+        # =========================================================
 
         msg = JointTrajectory()
 
-        msg.joint_names = self.joint_names
+        msg.joint_names = list(
+            self.joint_names
+        )
 
         point = JointTrajectoryPoint()
 
         point.positions = positions
 
+        # ---------------------------------------------------------
+        # IMPORTANT:
+        #
+        # Very short trajectory prevents the controller from
+        # trying to execute an old command for a long time.
+        # ---------------------------------------------------------
+
         point.time_from_start.sec = 0
-        point.time_from_start.nanosec = 100000000
+
+        point.time_from_start.nanosec = 50000000
 
         msg.points.append(point)
 
         self.publisher.publish(msg)
 
+
+# =================================================================
+# MAIN
+# =================================================================
 
 def main(args=None):
 
@@ -321,17 +525,12 @@ def main(args=None):
 
     node = ArmTeleop()
 
-    executor = rclpy.executors.MultiThreadedExecutor(
-        num_threads=2
-    )
-
-    executor.add_node(node)
-
     try:
 
-        executor.spin()
+        rclpy.spin(node)
 
     except KeyboardInterrupt:
+
         pass
 
     finally:
@@ -339,10 +538,12 @@ def main(args=None):
         node.running = False
 
         if rclpy.ok():
+
             rclpy.shutdown()
 
         node.destroy_node()
 
 
 if __name__ == '__main__':
+
     main()
