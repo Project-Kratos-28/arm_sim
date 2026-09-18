@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(arm_sim)
+project(arm_controller)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -19,20 +19,18 @@ if(BUILD_TESTING)
   # the following line skips cpplint (only works in a git repo)
   # comment the line when this package is in a git repo and when
   # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
 
 install(
-  DIRECTORY launch urdf config meshes worlds
+  DIRECTORY config launch meshes urdf
   DESTINATION share/${PROJECT_NAME}
 )
 
 install(
-  PROGRAMS
-    src/arm_teleop.py
-    src/arm_cmd_to_trajectory.py
+  PROGRAMS src/test_with_keyboard.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_package()
+

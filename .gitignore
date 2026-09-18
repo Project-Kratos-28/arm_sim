@@ -1,6 +1,7 @@
 build/
 install/
 log/
+src/arm_sim/src/key_test.py
 
 *.pyc
 __pycache__/
