@@ -45,7 +45,7 @@ def generate_launch_description():
     )
 
     xacro_file = os.path.join(pkg_arm, "urdf", "arm_cad.urdf.xacro")
-    world_file = os.path.join(pkg_arm, "worlds", "empty.sdf")
+    world_file = os.path.join(pkg_arm, "worlds", "pick_test.sdf")
     rviz_config_file = os.path.join(pkg_arm_controller, "config", "moveit.rviz")
 
     use_sim_time = LaunchConfiguration("use_sim_time")
@@ -95,7 +95,14 @@ def generate_launch_description():
     clock_bridge = Node(
         package="ros_gz_bridge",
         executable="parameter_bridge",
-        arguments=["/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock"],
+        arguments=[
+            "/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock",
+
+            "/camera/image@sensor_msgs/msg/Image@gz.msgs.Image",
+            "/camera/depth_image@sensor_msgs/msg/Image@gz.msgs.Image",
+            "/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
+            "/camera/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked",
+        ],
         output="screen",
     )
     
@@ -132,6 +139,13 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["arm_controller", "--controller-manager", "/controller_manager"],
+        output="screen",
+    )
+
+    joy_node = Node(
+        package="joy",
+        executable="joy_node",
+        name="joy_node",
         output="screen",
     )
 
@@ -198,7 +212,7 @@ def generate_launch_description():
     set_rtf = ExecuteProcess(
         cmd=[
             "bash", "-c",
-            "until gz service -s /world/empty/set_physics "
+            "until gz service -s /world/pick_test/set_physics "
             "--reqtype gz.msgs.Physics --reptype gz.msgs.Boolean --timeout 1000 "
             "--req 'real_time_factor: 1.0'; do "
             "echo 'Waiting for Gazebo physics service...'; sleep 1; done; "
@@ -227,6 +241,6 @@ def generate_launch_description():
         # Start high-level nodes after the controller manager has had time to appear.
         TimerAction(
             period=10.0,
-            actions=[mapper_node, ik_solver_node, command_bridge, rviz_node],
+            actions=[joy_node, mapper_node, ik_solver_node, command_bridge, rviz_node],
         ),
     ])

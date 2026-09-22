@@ -23,12 +23,12 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  DIRECTORY config launch meshes urdf
+  DIRECTORY config 
   DESTINATION share/${PROJECT_NAME}
 )
 
 install(
-  PROGRAMS src/test_with_keyboard.py
+  PROGRAMS 
   DESTINATION lib/${PROJECT_NAME}
 )
 

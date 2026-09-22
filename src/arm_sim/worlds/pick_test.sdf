@@ -1,0 +1,186 @@
+<?xml version="1.0" ?>
+
+<sdf version="1.10">
+  <world name="pick_test">
+
+
+    <!-- Gazebo system plugins -->
+
+    <plugin
+        name="gz::sim::systems::Physics"
+        filename="gz-sim-physics-system"/>
+
+    <plugin
+        name="gz::sim::systems::UserCommands"
+        filename="gz-sim-user-commands-system"/>
+
+    <plugin
+        name="gz::sim::systems::SceneBroadcaster"
+        filename="gz-sim-scene-broadcaster-system"/>
+
+    <plugin
+        name="gz::sim::systems::Contact"
+        filename="gz-sim-contact-system"/>
+
+    <!-- Required for RGB-D camera -->
+    <plugin
+        name="gz::sim::systems::Sensors"
+        filename="gz-sim-sensors-system">
+        <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- Sun / main light -->
+    <light type="directional" name="sun">
+        <cast_shadows>true</cast_shadows>
+        <pose>0 0 10 0 0 0</pose>
+        <diffuse>0.8 0.8 0.8 1</diffuse>
+        <specular>0.2 0.2 0.2 1</specular>
+        <attenuation>
+            <range>1000</range>
+            <constant>0.9</constant>
+            <linear>0.01</linear>
+            <quadratic>0.001</quadratic>
+        </attenuation>
+        <direction>-0.5 0.5 -1</direction>
+    </light>
+
+    <!-- Physics -->
+    <physics name="1ms" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <!--real_time_factor>1</real_time_factor -->
+    </physics>
+
+
+    <!-- Gravity -->
+    <gravity>0 0 -9.81</gravity>
+
+    <!-- Ground -->
+    <model name="ground">
+      <static>true</static>
+
+      <link name="link">
+
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.2 0.2 0.2 1</specular>
+          </material>
+        </visual>
+
+      </link>
+    </model>
+    
+    <model name="cube_1">
+        <pose>0.35 1.0 0.025 0 0 0</pose>
+
+        <link name="link">
+
+            <inertial>
+                <mass>0.2</mass>
+                <inertia>
+                    <ixx>0.00008333</ixx>
+                    <iyy>0.00008333</iyy>
+                    <izz>0.00008333</izz>
+                    <ixy>0</ixy>
+                    <ixz>0</ixz>
+                    <iyz>0</iyz>
+                </inertia>
+            </inertial>
+
+            <collision name="collision">
+                <geometry>
+                    <box>
+                        <size>0.10 0.10 0.10</size>
+                    </box>
+                </geometry>
+            </collision>
+
+            <visual name="visual">
+                <geometry>
+                    <box>
+                        <size>0.25 0.25 0.25</size>
+                    </box>
+                </geometry>
+                <material>
+                    <ambient>0.1 0.4 0.8 1</ambient>
+                    <diffuse>0.2 0.6 1.0 1</diffuse>
+                    <specular>0.1 0.1 0.1 1</specular>
+                </material>
+            </visual>
+
+        </link>
+    </model>
+
+    <model name="cylinder_1">
+
+    <!-- x y z -->
+    <!-- Position shifted on Y-axis to avoid spawning inside cube_1 -->
+      <pose>-0.30 -0.12 0.10 0 0 0</pose>
+
+      <link name="link">
+
+        <!-- Physical properties -->
+        <inertial>
+            <mass>0.2</mass>
+
+            <inertia>
+                <ixx>0.0008667</ixx>
+                <iyy>0.0008667</iyy>
+                <izz>0.00064</izz>
+                <ixy>0</ixy>
+                <ixz>0</ixz>
+                <iyz>0</iyz>
+            </inertia>
+        </inertial>
+
+        <!-- Collision -->
+        <collision name="collision">
+            <geometry>
+                <cylinder>
+                    <radius>0.04</radius>
+                    <length>0.20</length>
+                </cylinder>
+            </geometry>
+        </collision>
+
+        <!-- Visual -->
+        <visual name="visual">
+            <geometry>
+                <cylinder>
+                    <radius>0.04</radius>
+                    <length>0.20</length>
+                </cylinder>
+            </geometry>
+
+            <material>
+                <ambient>0.1 0.4 0.8 1</ambient>
+                <diffuse>0.2 0.6 1.0 1</diffuse>
+                <specular>0.1 0.1 0.1 1</specular>
+            </material>
+        </visual>
+
+    </link>
+
+</model>
+
+    
+
+
+  </world>
+</sdf>
