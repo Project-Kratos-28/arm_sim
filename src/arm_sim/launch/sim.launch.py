@@ -3,12 +3,13 @@ import yaml
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler, TimerAction, SetEnvironmentVariable
-from launch.conditions import IfCondition
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, RegisterEventHandler, TimerAction, SetEnvironmentVariable, IncludeLaunchDescription
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition
 
 
 def load_yaml(package_name, file_path):
@@ -27,8 +28,6 @@ def load_file(package_name, file_path):
 
 def generate_launch_description():
     pkg_arm = get_package_share_directory("arm_sim")
-    pkg_arm_controller = get_package_share_directory("arm_controller")
-
     # Gazebo Sim needs the *parent* share directory for model://arm_sim/...
     # and the Jazzy library directory for gz_ros2_control.
     arm_install_share = os.path.dirname(pkg_arm)
@@ -46,37 +45,36 @@ def generate_launch_description():
 
     xacro_file = os.path.join(pkg_arm, "urdf", "arm_cad.urdf.xacro")
     world_file = os.path.join(pkg_arm, "worlds", "pick_test.sdf")
-    rviz_config_file = os.path.join(pkg_arm_controller, "config", "moveit.rviz")
 
     use_sim_time = LaunchConfiguration("use_sim_time")
-    launch_rviz = LaunchConfiguration("rviz")
+    use_high_level = LaunchConfiguration("use_high_level")
 
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time", default_value="true"
     )
-    declare_rviz = DeclareLaunchArgument(
-        "rviz", default_value="false"
+
+    declare_use_high_level = DeclareLaunchArgument(
+        "use_high_level",
+        default_value="false",
+        description="Launch the arm_high_level stack",
     )
 
-    # IMPORTANT: use arm_sim's URDF for both Gazebo and MoveIt/IK.
-    # Do not start arm_controller's robot_state_publisher; that would create
-    # a second robot description with different mesh/package paths.
+    use_high_level = LaunchConfiguration("use_high_level")
+
+    declare_use_high_level = DeclareLaunchArgument(
+        "use_high_level",
+        default_value="false",
+        description="Launch the arm_high_level stack"
+    )
+
+    # arm_sim owns the robot description used by Gazebo and robot_state_publisher.
+    # High-level control is completely separate and communicates through /arm_cmd.
+    
     robot_description_content = ParameterValue(
         Command([FindExecutable(name="xacro"), " ", xacro_file, " use_gazebo:=true", " use_mock_hardware:=false"]),
         value_type=str,
     )
     robot_description = {"robot_description": robot_description_content}
-
-    # Semantic/MoveIt configuration comes from the high-level controls package.
-    robot_description_semantic = {
-        "robot_description_semantic": load_file("arm_controller", "config/arm.srdf")
-    }
-    robot_description_kinematics = {
-        "robot_description_kinematics": load_yaml("arm_controller", "config/kinematics.yaml")
-    }
-    robot_description_planning = {
-        "robot_description_planning": load_yaml("arm_controller", "config/joint_limits.yaml")
-    }
 
     # Gazebo.
     set_gz_resource_path = SetEnvironmentVariable(
@@ -142,47 +140,9 @@ def generate_launch_description():
         output="screen",
     )
 
-    joy_node = Node(
-        package="joy",
-        executable="joy_node",
-        name="joy_node",
-        output="screen",
-    )
-
-    # Kratos high-level mapper: /joy -> /arm_cmd or /arm_ik_cmd.
-    mapper_node = Node(
-        package="mapper",
-        executable="ps5_mapper",
-        name="ps5_mapper",
-        parameters=[{"use_sim_time": use_sim_time}],
-        output="screen",
-    )
-
-    # Kratos IK: /arm_ik_cmd -> /arm_cmd using the SAME arm_sim URDF.
-    ik_solver_node = Node(
-        package="ik_motion_planner",
-        executable="ik_solver_node",
-        name="ik_solver_node",
-        parameters=[
-            robot_description,
-            robot_description_semantic,
-            robot_description_kinematics,
-            robot_description_planning,
-            {
-                "planning_group": "arm",
-                "base_frame": "base_link",
-                "tip_frame": "tool0",
-                "wrist_planning_group": "arm_wrist",
-                "wrist_tip_frame": "wrist_center",
-                "ik_timeout": 0.001,
-                "use_live_joint_states": False,
-                "use_sim_time": use_sim_time,
-            },
-        ],
-        output="screen",
-    )
-
-    # The high-level controls publish Float64MultiArray on /arm_cmd.
+    # Simulation command bridge.
+    # arm_high_level publishes Float64MultiArray on /arm_cmd.
+    # This node converts that command into a JointTrajectory for ros2_control.
     # ros2_control's JointTrajectoryController expects JointTrajectory on
     # /arm_controller/joint_trajectory, so this small bridge connects them.
     command_bridge = Node(
@@ -193,20 +153,24 @@ def generate_launch_description():
         output="screen",
     )
 
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        arguments=["-d", rviz_config_file],
-        parameters=[
-            robot_description,
-            robot_description_semantic,
-            robot_description_kinematics,
-            {"use_sim_time": use_sim_time},
-        ],
-        condition=IfCondition(launch_rviz),
-        output="screen",
+    high_level_launch_file = os.path.join(
+        os.path.expanduser("~/arm_high_level"),
+        "src",
+        "arm_controller",
+        "launch",
+        "arm.launch.py",
     )
+
+    high_level_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(high_level_launch_file),
+        launch_arguments={
+            "use_sim_time": use_sim_time,
+            "rviz": "false",
+        }.items(),
+        condition=IfCondition(use_high_level),
+    )
+
+    
 
     # Keep the existing RTF fix because it was part of the working sim setup.
     set_rtf = ExecuteProcess(
@@ -223,7 +187,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time,
-        declare_rviz,
+        declare_use_high_level, 
         set_gz_resource_path,
         set_gz_plugin_path,
         gazebo,
@@ -241,6 +205,12 @@ def generate_launch_description():
         # Start high-level nodes after the controller manager has had time to appear.
         TimerAction(
             period=10.0,
-            actions=[joy_node, mapper_node, ik_solver_node, command_bridge, rviz_node],
+            actions=[command_bridge],
         ),
+
+        TimerAction(
+            period=12.0,
+            actions=[high_level_launch],
+        ),
+
     ])
