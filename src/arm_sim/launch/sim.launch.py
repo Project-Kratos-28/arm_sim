@@ -85,7 +85,7 @@ def generate_launch_description():
     )
 
     gazebo = ExecuteProcess(
-        cmd=["gz", "sim", "-r", world_file],
+        cmd=["gz", "sim", "-r" , "-s", world_file],
         output="screen",
     )
 
@@ -100,6 +100,11 @@ def generate_launch_description():
             "/camera/depth_image@sensor_msgs/msg/Image@gz.msgs.Image",
             "/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo",
             "/camera/points@sensor_msgs/msg/PointCloud2@gz.msgs.PointCloudPacked",
+
+            "/elbow_camera/image@sensor_msgs/msg/Image[gz.msgs.Image",
+            "/elbow_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo",
+            "/gripper_camera/image@sensor_msgs/msg/Image[gz.msgs.Image",
+            "/gripper_camera/camera_info@sensor_msgs/msg/CameraInfo[gz.msgs.CameraInfo",
         ],
         output="screen",
     )

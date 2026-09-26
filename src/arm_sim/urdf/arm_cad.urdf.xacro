@@ -17,8 +17,10 @@
     <color rgba="0.9 0.5 0.1 1.0" />
   </material>
   <material name="none">
-    
     <color rgba="0 0 0 0" />
+  </material>
+  <material name="red">
+    <color rgba="1.0 0.0 0.0 1.0" />
   </material>
 
 
@@ -278,6 +280,47 @@
 
   </xacro:sensor_d435i>
 
+  <!-- ========================= -->
+  <!-- Elbow camera (sensor only) -->
+  <!-- ========================= -->
+
+  <link name="elbow_camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.02 0.02 0.005" />
+      </geometry>
+      <material name="red" />
+    </visual>
+  </link>
+
+  <joint name="elbow_camera_joint" type="fixed">
+    <parent link="elbow_link"/>
+    <child link="elbow_camera_link"/>
+    <origin xyz="-0.06 0 0.05" rpy="0 0.4363 ${-PI/2}"/>
+  </joint>
+
+  <!-- ========================= -->
+  <!-- Gripper Camera (sensor only) -->
+  <!-- ========================= -->
+
+
+  <link name="gripper_camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.001 0.015 0.015" />
+      </geometry>
+      <material name="red" />
+    </visual>
+  </link>
+
+  <joint name="gripper_camera_joint" type="fixed">
+    <parent link="gripper_link"/>
+    <child link="gripper_camera_link"/>
+    <origin xyz="0 0.105 0" rpy="0 0 ${PI/2}"/>
+  </joint>
+
 
   <link name="upper_jaw_link">
     <visual>
@@ -387,8 +430,8 @@
       <camera_info_topic>camera/camera_info</camera_info_topic>
 
       <image>
-        <width>1920</width>
-        <height>1080</height>
+        <width>640</width>
+        <height>480</height>
         <format>R8G8B8</format>
       </image>
 
@@ -398,6 +441,52 @@
       </clip>
     </camera>
 
+  </sensor>
+</gazebo>
+
+<gazebo reference="elbow_camera_link">
+  <sensor name="elbow_camera" type="camera">
+    <always_on>true</always_on>
+    <visualize>true</visualize>
+    <update_rate>30</update_rate>
+    <topic>elbow_camera/image</topic>
+    <gz_frame_id>elbow_camera_link</gz_frame_id>
+    <camera>
+      <horizontal_fov>1.047</horizontal_fov>
+      <camera_info_topic>elbow_camera/camera_info</camera_info_topic>
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.05</near>
+        <far>10.0</far>
+      </clip>
+    </camera>
+  </sensor>
+</gazebo>
+
+<gazebo reference="gripper_camera_link">
+  <sensor name="gripper_camera" type="camera">
+    <always_on>true</always_on>
+    <visualize>true</visualize>
+    <update_rate>30</update_rate>
+    <topic>gripper_camera/image</topic>
+    <gz_frame_id>gripper_camera_link</gz_frame_id>
+    <camera>
+      <horizontal_fov>1.047</horizontal_fov>
+      <camera_info_topic>gripper_camera/camera_info</camera_info_topic>
+      <image>
+        <width>640</width>
+        <height>480</height>
+        <format>R8G8B8</format>
+      </image>
+      <clip>
+        <near>0.05</near>
+        <far>10.0</far>
+      </clip>
+    </camera>
   </sensor>
 </gazebo>
 
